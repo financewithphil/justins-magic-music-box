@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Start a Cloudflare quick tunnel exposing the local API publicly.
+# Start a Cloudflare quick tunnel + publish the live URL to GitHub Pages
+# at /share/ so Justin always uses one stable bookmark.
 #
-# Generates a fresh https://<random>.trycloudflare.com URL each run.
-# No Cloudflare account or domain required. Tunnel lives only as long
-# as this process — Ctrl+C stops it.
+# Free path: the tunnel is still ephemeral (URL changes per run), but the
+# /share/ page is updated on every start/stop so Justin sees the right URL.
 set -euo pipefail
 
 PORT="${PORT:-8768}"
 LOG="/tmp/jmb-tunnel.log"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TUNNEL_JSON="$ROOT/docs/share/tunnel.json"
 
 if ! command -v cloudflared >/dev/null 2>&1; then
   echo "cloudflared not installed. Run: brew install cloudflared" >&2
@@ -29,18 +31,42 @@ if pgrep -f "cloudflared tunnel --url http://localhost:${PORT}" >/dev/null 2>&1;
   fi
 fi
 
-: > "$LOG"
-cloudflared tunnel --url "http://localhost:${PORT}" --no-autoupdate > "$LOG" 2>&1 &
-TUNNEL_PID=$!
+write_status() {
+  local status="$1" url="$2"
+  local now
+  now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  cat > "$TUNNEL_JSON" <<EOF
+{"status": "${status}", "url": ${url}, "updated_at": "${now}"}
+EOF
+}
+
+publish_status() {
+  local why="$1"
+  cd "$ROOT"
+  if ! git diff --quiet -- docs/share/tunnel.json 2>/dev/null; then
+    git add docs/share/tunnel.json >/dev/null 2>&1 || true
+    if git -c commit.gpgsign=false commit -m "share: ${why}" >/dev/null 2>&1; then
+      git push origin main >/dev/null 2>&1 \
+        && echo "  · /share/ updated on GitHub Pages" \
+        || echo "  · git push failed (network?) — page won't refresh until next push" >&2
+    fi
+  fi
+}
 
 cleanup() {
   echo ""
   echo "Stopping tunnel..."
   kill "$TUNNEL_PID" 2>/dev/null || true
   wait "$TUNNEL_PID" 2>/dev/null || true
+  write_status "offline" "null"
+  publish_status "tunnel offline"
   echo "Stopped. (The local app at 127.0.0.1:${PORT} keeps running.)"
 }
 trap cleanup INT TERM
+
+: > "$LOG"
+cloudflared tunnel --url "http://localhost:${PORT}" --no-autoupdate > "$LOG" 2>&1 &
+TUNNEL_PID=$!
 
 echo "Starting Cloudflare Tunnel for http://localhost:${PORT} ..."
 URL=""
@@ -57,15 +83,22 @@ if [ -z "$URL" ]; then
   exit 1
 fi
 
+write_status "live" "\"${URL}\""
+publish_status "tunnel live"
+
 cat <<EOF
 
   ┌──────────────────────────────────────────────────────────────────┐
   │                                                                  │
-  │   Tunnel is live. Send Justin this URL:                          │
+  │   Tunnel is live. Two ways to share with Justin:                 │
   │                                                                  │
+  │   STABLE BOOKMARK (he uses this every time):                     │
+  │     https://financewithphil.github.io/justins-magic-music-box/share/
+  │                                                                  │
+  │   DIRECT URL (this session only):                                │
   │     ${URL}
   │                                                                  │
-  │   • URL changes every restart (Cloudflare quick-tunnel).         │
+  │   • The /share/ page updates within a minute of this banner.     │
   │   • Press Ctrl+C to stop sharing — local app keeps running.      │
   │                                                                  │
   └──────────────────────────────────────────────────────────────────┘
