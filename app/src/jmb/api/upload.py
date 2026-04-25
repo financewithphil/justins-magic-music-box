@@ -12,7 +12,9 @@ from ..worker.stages.probe import ffprobe, normalize_to_wav
 
 router = APIRouter()
 
-ALLOWED_SUFFIX = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg"}
+AUDIO_SUFFIX = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus"}
+VIDEO_SUFFIX = {".mp4", ".m4v", ".mov", ".mkv", ".webm", ".avi", ".mpeg", ".mpg"}
+ALLOWED_SUFFIX = AUDIO_SUFFIX | VIDEO_SUFFIX
 
 
 @router.post("/upload")
@@ -20,8 +22,8 @@ async def upload(
     file: UploadFile = File(...),
     instrument: str = Form("guitar"),
 ):
-    if instrument not in {"guitar", "violin"}:
-        raise HTTPException(400, "instrument must be 'guitar' or 'violin' (Phase 1)")
+    if instrument not in {"auto", "guitar", "violin"}:
+        raise HTTPException(400, "instrument must be 'auto', 'guitar', or 'violin'")
     if not file.filename:
         raise HTTPException(400, "missing filename")
 
@@ -42,7 +44,12 @@ async def upload(
 
     info = await ffprobe(wav_path)
     duration_s = float(info["format"]["duration"])
-    sample_rate = int(next(s["sample_rate"] for s in info["streams"] if s["codec_type"] == "audio"))
+    audio_streams = [s for s in info["streams"] if s["codec_type"] == "audio"]
+    if not audio_streams:
+        raw_path.unlink(missing_ok=True)
+        wav_path.unlink(missing_ok=True)
+        raise HTTPException(422, "no audio track found in this file")
+    sample_rate = int(audio_streams[0]["sample_rate"])
 
     with SessionLocal() as db:
         job = Job(
@@ -52,7 +59,7 @@ async def upload(
             duration_s=duration_s,
             sample_rate=sample_rate,
             state="queued",
-            model="htdemucs_6s" if instrument == "guitar" else "htdemucs",
+            model="htdemucs_6s" if instrument in {"auto", "guitar"} else "htdemucs",
             instrument=instrument,
         )
         db.add(job)

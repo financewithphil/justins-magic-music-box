@@ -27,17 +27,19 @@ async def ffprobe(path: Path) -> dict:
 
 
 async def normalize_to_wav(src: Path, dst: Path) -> None:
-    """Re-encode any input to 44.1kHz stereo PCM-16 WAV."""
+    """Extract + re-encode audio from any input (audio or video) to 44.1kHz stereo PCM-16 WAV."""
     proc = await asyncio.create_subprocess_exec(
         "ffmpeg", "-y", "-loglevel", "error",
         "-i", str(src),
+        "-vn",                              # discard video stream cleanly
+        "-map", "0:a:0?",                  # take the first audio stream if any
         "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le",
         str(dst),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
     )
     _, err = await proc.communicate()
     if proc.returncode != 0:
-        raise RuntimeError(f"ffmpeg normalize failed: {err.decode()[:200]}")
+        raise RuntimeError(f"ffmpeg normalize failed: {err.decode()[:300]}")
 
 
 def is_sparse(audio_path: str | Path, *, threshold: float = 0.06) -> tuple[bool, float]:

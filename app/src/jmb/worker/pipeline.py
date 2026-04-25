@@ -1,9 +1,13 @@
 """Job pipeline orchestrator.
 
-Single-flight per Mac: one job processes at a time. The flow:
+Three modes (set per-job by the user at upload time):
+- auto:    Demucs → pick loudest non-drum stem → route by stem type
+- guitar:  Demucs htdemucs_6s → "guitar" stem → tabs
+- violin:  sparse-source pre-flight; if sparse, bypass Demucs;
+           else Demucs htdemucs → "other" stem → sheet music
 
-   probe → (sparse-check) → separate (or skip) → transcribe →
-       guitar tabs  OR  violin sheet music   → export to ~/Music/
+Single-flight per Mac: the asyncio queue serializes jobs so we never
+double-load the GPU.
 """
 
 from __future__ import annotations
@@ -14,10 +18,11 @@ from pathlib import Path
 from ..db import Job, Output, SessionLocal, Stem
 from ..services.events_bus import bus
 from ..services.storage import (
-    export_dir, midi_dir, pdf_dir, safe_slug, stems_dir, tabs_dir, musicxml_dir,
+    export_dir, midi_dir, musicxml_dir, pdf_dir, safe_slug, stems_dir, tabs_dir,
 )
 from ..utils.ids import new_id
-from .stages.notation import build_violin_sheet
+from .stages.detect import pick_dominant_stem, stem_to_output
+from .stages.notation import build_sheet
 from .stages.probe import is_sparse
 from .stages.separate import run_demucs
 from .stages.tabs import build_guitar_tabs
@@ -38,6 +43,13 @@ async def _set_state(job_id: str, state: str, error: str | None = None) -> None:
         db.commit()
 
 
+def _record_stems(job_id: str, stems: dict[str, str]) -> None:
+    with SessionLocal() as db:
+        for name, p in stems.items():
+            db.add(Stem(id=new_id(), job_id=job_id, name=name, path=p))
+        db.commit()
+
+
 async def process_job(job_id: str) -> None:
     bus.emit(job_id, "queued", "Job picked up", progress=0.0)
     await _set_state(job_id, "running")
@@ -46,62 +58,89 @@ async def process_job(job_id: str) -> None:
         job = db.get(Job, job_id)
         if not job:
             return
-        instrument = (job.instrument or "guitar").lower()
+        instrument_pref = (job.instrument or "auto").lower()
         source_path = Path(job.source_path)
         slug = safe_slug(job.source_filename)
+        title = Path(job.source_filename).stem
 
     try:
-        # 1. Sparse check (mostly informative; affects routing for violin)
+        # 1. Probe (sparse-flatness only used by the violin branch)
         bus.emit(job_id, "probe", "Analyzing source", progress=0.1)
         sparse, flatness = is_sparse(source_path)
         bus.emit(job_id, "probe",
                  f"Spectral flatness {flatness:.3f} → {'sparse' if sparse else 'full mix'}",
                  progress=1.0)
 
-        # 2. Separate (or bypass for sparse violin)
-        if instrument == "violin" and sparse:
-            stem_for_midi = source_path
-            bus.emit(job_id, "separate",
-                     "Sparse source — bypassing Demucs", progress=1.0)
-        else:
-            model = "htdemucs_6s" if instrument == "guitar" else "htdemucs"
-            bus.emit(job_id, "separate", f"Running Demucs ({model})", progress=0.0)
-            stems = await run_demucs(source_path, stems_dir(job_id), model=model)
-            bus.emit(job_id, "separate",
-                     f"Demucs done — stems: {', '.join(stems)}", progress=1.0)
-            with SessionLocal() as db:
-                for name, p in stems.items():
-                    db.add(Stem(id=new_id(), job_id=job_id, name=name, path=p))
-                db.commit()
+        # 2. Decide which stem to transcribe
+        output_kind: str          # "tabs" | "sheet"
+        instrument_label: str     # for music21 + filename
+        stem_for_midi: Path
 
-            if instrument == "guitar" and "guitar" in stems:
-                stem_for_midi = Path(stems["guitar"])
-            elif instrument == "violin" and "other" in stems:
-                stem_for_midi = Path(stems["other"])
+        if instrument_pref == "auto":
+            bus.emit(job_id, "separate", "Demucs htdemucs_6s — separating all instruments", progress=0.0)
+            stems = await run_demucs(source_path, stems_dir(job_id), model="htdemucs_6s")
+            _record_stems(job_id, stems)
+            bus.emit(job_id, "separate",
+                     f"Stems: {', '.join(stems)}", progress=1.0)
+
+            winner, rms = pick_dominant_stem(stems)
+            rms_str = ", ".join(f"{k}={v:.1f}" for k, v in sorted(rms.items(), key=lambda x: -x[1]))
+            bus.emit(job_id, "detect",
+                     f"Dominant melodic stem: {winner}  (dB: {rms_str})",
+                     progress=1.0)
+
+            output_kind, instrument_label = stem_to_output(winner)
+            stem_for_midi = Path(stems[winner])
+
+        elif instrument_pref == "guitar":
+            bus.emit(job_id, "separate", "Demucs htdemucs_6s for guitar isolation", progress=0.0)
+            stems = await run_demucs(source_path, stems_dir(job_id), model="htdemucs_6s")
+            _record_stems(job_id, stems)
+            bus.emit(job_id, "separate", f"Stems: {', '.join(stems)}", progress=1.0)
+            output_kind = "tabs"
+            instrument_label = "guitar"
+            stem_for_midi = Path(stems.get("guitar") or next(iter(stems.values())))
+
+        elif instrument_pref == "violin":
+            if sparse:
+                stem_for_midi = source_path
+                bus.emit(job_id, "separate",
+                         "Sparse source — bypassing Demucs (solo or near-solo violin)",
+                         progress=1.0)
             else:
-                stem_for_midi = Path(next(iter(stems.values())))
+                bus.emit(job_id, "separate", "Demucs htdemucs (4-stem)", progress=0.0)
+                stems = await run_demucs(source_path, stems_dir(job_id), model="htdemucs")
+                _record_stems(job_id, stems)
+                stem_for_midi = Path(stems.get("other") or next(iter(stems.values())))
+                bus.emit(job_id, "separate",
+                         f"Using 'other' stem (violin lives here in 4-stem model)",
+                         progress=1.0)
+            output_kind = "sheet"
+            instrument_label = "violin"
 
-        # 3. Transcribe
+        else:
+            raise RuntimeError(f"unknown instrument preference: {instrument_pref}")
+
+        # 3. Transcribe the chosen stem
         bus.emit(job_id, "transcribe",
-                 f"Transcribing {instrument} via Basic Pitch", progress=0.0)
-        bp = await run_basicpitch(stem_for_midi, midi_dir(job_id), name=instrument)
+                 f"Basic Pitch → {instrument_label} MIDI", progress=0.0)
+        bp = await run_basicpitch(stem_for_midi, midi_dir(job_id), name=instrument_label)
         bus.emit(job_id, "transcribe",
-                 f"{bp['note_count']} notes, avg confidence {bp['avg_confidence']}",
+                 f"{bp['note_count']} notes · avg confidence {bp['avg_confidence']}",
                  progress=1.0)
 
         midi_path = Path(bp["midi"])
         notes_json = Path(bp["notes"])
 
-        outputs_for_export: list[tuple[str, Path]] = [("midi", midi_path)]
+        outputs_for_export: list[Path] = [midi_path]
 
         # 4. Hero output
-        if instrument == "guitar":
-            bus.emit(job_id, "tabs", "Generating tabs", progress=0.0)
+        if output_kind == "tabs":
+            bus.emit(job_id, "tabs", "Generating guitar tabs", progress=0.0)
             tabs_d = tabs_dir(job_id)
-            ascii_path = tabs_d / f"{instrument}.tab.txt"
-            gp5_path = tabs_d / f"{instrument}.gp5"
-            t = build_guitar_tabs(midi_path, notes_json, gp5_path, ascii_path,
-                                   title=Path(job.source_filename).stem)
+            ascii_path = tabs_d / f"{instrument_label}.tab.txt"
+            gp5_path = tabs_d / f"{instrument_label}.gp5"
+            t = build_guitar_tabs(midi_path, notes_json, gp5_path, ascii_path, title=title)
             bus.emit(job_id, "tabs",
                      f"{t['note_count']} notes mapped (confidence {t['confidence']})",
                      progress=1.0)
@@ -116,17 +155,18 @@ async def process_job(job_id: str) -> None:
                               format="midi", path=str(midi_path)))
                 db.commit()
 
-            outputs_for_export += [
-                ("tab.txt", ascii_path),
-            ]
+            outputs_for_export.append(ascii_path)
             if t["gp5"]:
-                outputs_for_export.append(("gp5", gp5_path))
-        else:
-            bus.emit(job_id, "notation", "Generating sheet music", progress=0.0)
-            mxl = musicxml_dir(job_id) / f"{instrument}.musicxml"
-            pdf = pdf_dir(job_id) / f"{instrument}.pdf"
-            await build_violin_sheet(midi_path, mxl, pdf)
-            bus.emit(job_id, "notation", "Sheet music PDF rendered", progress=1.0)
+                outputs_for_export.append(gp5_path)
+
+        else:  # sheet
+            bus.emit(job_id, "notation",
+                     f"Generating sheet music ({instrument_label})", progress=0.0)
+            mxl = musicxml_dir(job_id) / f"{instrument_label}.musicxml"
+            pdf = pdf_dir(job_id) / f"{instrument_label}.pdf"
+            await build_sheet(midi_path, mxl, pdf, instrument=instrument_label)
+            bus.emit(job_id, "notation",
+                     f"Sheet music PDF rendered for {instrument_label}", progress=1.0)
 
             with SessionLocal() as db:
                 db.add(Output(id=new_id(), job_id=job_id, kind="sheet",
@@ -137,18 +177,18 @@ async def process_job(job_id: str) -> None:
                               format="midi", path=str(midi_path)))
                 db.commit()
 
-            outputs_for_export += [("musicxml", mxl), ("pdf", pdf)]
+            outputs_for_export += [mxl, pdf]
 
         # 5. Export to ~/Music/Justin's Magic Music Box/<slug>/
         bus.emit(job_id, "export", "Copying to ~/Music/", progress=0.0)
         ed = export_dir(slug)
-        for label, p in outputs_for_export:
+        for p in outputs_for_export:
             if p.exists():
                 shutil.copy2(p, ed / p.name)
-        bus.emit(job_id, "export", f"Outputs at {ed}", progress=1.0)
+        bus.emit(job_id, "export", f"Exports at {ed}", progress=1.0)
 
         await _set_state(job_id, "complete")
-        bus.emit(job_id, "complete", "Done", progress=1.0)
+        bus.emit(job_id, "complete", f"Done — {instrument_label} {output_kind}", progress=1.0)
 
     except Exception as e:
         await _set_state(job_id, "failed", error=str(e))

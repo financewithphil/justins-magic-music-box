@@ -6,15 +6,17 @@
 <title>Justin's Magic Music Box</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
 :root {
   --bg-0: #0a0b14;
   --bg-1: #11131f;
   --bg-2: #1a1d2e;
   --line: #2a2d40;
+  --line-soft: #1f2233;
   --text: #f4ecd8;
   --text-dim: #8a8d9f;
+  --text-faint: #5a5d6f;
   --accent: #e8a87c;
   --accent-dim: #b88662;
   --mono: #7fb09f;
@@ -26,12 +28,25 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 html, body {
   background: var(--bg-0);
   color: var(--text);
   font-family: var(--sans);
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -58,150 +73,254 @@ body::after {
 
 main {
   position: relative; z-index: 2;
-  max-width: 720px; margin: 0 auto;
+  max-width: 760px; margin: 0 auto;
   padding: 80px 32px 120px;
+  animation: fadeUp 0.6s ease both;
+}
+@media (max-width: 600px) {
+  main { padding: 48px 20px 80px; }
 }
 
-header { margin-bottom: 64px; }
+header { margin-bottom: 56px; }
 
 h1 {
   font-family: var(--serif);
   font-size: clamp(48px, 7vw, 84px);
   font-weight: 400;
   letter-spacing: -0.02em;
-  line-height: 1;
-  margin-bottom: 12px;
+  line-height: 0.95;
+  margin-bottom: 16px;
 }
+h1 em { font-style: italic; color: var(--accent); }
 
-h1 em {
-  font-style: italic;
-  color: var(--accent);
-}
-
-header p {
+header .tagline {
   font-family: var(--mono-font);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-dim);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
-section { margin-bottom: 32px; }
+section { margin-bottom: 32px; animation: fadeUp 0.5s ease both; }
+section.appearing { animation-delay: 0.05s; }
 
 .label {
   font-family: var(--mono-font);
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-dim);
-  margin-bottom: 12px;
-  display: block;
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
+.label::before { content: ''; flex: 0 0 16px; height: 1px; background: var(--line); }
 
 .dropzone {
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  padding: 48px 24px;
+  border: 1px dashed var(--line);
+  border-radius: 3px;
+  padding: 56px 24px;
   text-align: center;
   background: var(--bg-1);
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color 0.2s, background 0.2s, transform 0.1s;
+  position: relative;
+  overflow: hidden;
 }
-.dropzone:hover, .dropzone.dragging { border-color: var(--accent); background: var(--bg-2); }
-.dropzone p { font-family: var(--serif); font-size: 22px; }
-.dropzone .hint { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); margin-top: 8px; letter-spacing: 0.1em; text-transform: uppercase; }
+.dropzone:hover { border-color: var(--accent-dim); background: var(--bg-2); }
+.dropzone.dragging { border-color: var(--accent); background: var(--bg-2); transform: scale(1.005); }
+.dropzone.has-file { border-style: solid; border-color: var(--accent-dim); }
+.dropzone p { font-family: var(--serif); font-size: 24px; line-height: 1.2; }
+.dropzone .hint { font-family: var(--mono-font); font-size: 10px; color: var(--text-dim); margin-top: 10px; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.7; }
 .dropzone input { display: none; }
 
 .file-pill {
   display: inline-flex; align-items: center; gap: 12px;
-  padding: 8px 14px;
+  padding: 10px 16px;
   background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: 2px;
-  font-family: var(--mono-font); font-size: 13px;
+  border-radius: 3px;
+  font-family: var(--mono-font); font-size: 12px;
   color: var(--accent);
   margin-top: 16px;
+  animation: fadeUp 0.3s ease both;
 }
+.file-pill .x {
+  color: var(--text-dim); cursor: pointer; padding: 0 4px;
+  transition: color 0.15s;
+}
+.file-pill .x:hover { color: var(--error); }
 
-.choices { display: flex; gap: 12px; }
+.upload-bar {
+  height: 2px; background: var(--line-soft); border-radius: 2px;
+  overflow: hidden; margin-top: 12px; opacity: 0;
+  transition: opacity 0.2s;
+}
+.upload-bar.active { opacity: 1; }
+.upload-bar .fill { height: 100%; background: var(--accent); width: 0; transition: width 0.15s ease-out; }
+
+.choices { display: flex; flex-direction: column; gap: 10px; }
 .choice {
-  flex: 1;
-  padding: 20px;
+  padding: 22px;
   border: 1px solid var(--line);
-  border-radius: 2px;
+  border-radius: 3px;
   background: var(--bg-1);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  display: flex; justify-content: space-between; align-items: center;
 }
-.choice:hover { background: var(--bg-2); }
-.choice.selected { border-color: var(--accent); background: var(--bg-2); }
-.choice .name { font-family: var(--serif); font-size: 24px; }
-.choice .desc { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); margin-top: 4px; letter-spacing: 0.06em; }
+.choice:hover { background: var(--bg-2); transform: translateY(-1px); }
+.choice.selected {
+  border-color: var(--accent);
+  background: var(--bg-2);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.choice .name { font-family: var(--serif); font-size: 26px; line-height: 1; }
+.choice.featured .name { font-size: 32px; }
+.choice .desc { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); margin-top: 6px; letter-spacing: 0.06em; }
+.choice .badge {
+  font-family: var(--mono-font); font-size: 9px;
+  color: var(--accent); letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 4px 10px; border: 1px solid var(--accent-dim); border-radius: 2px;
+}
 .choice input { display: none; }
+.override-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.override-row .choice { padding: 16px; }
+.override-row .choice .name { font-size: 22px; }
+.override-label {
+  font-family: var(--mono-font); font-size: 9px;
+  color: var(--text-faint); letter-spacing: 0.16em; text-transform: uppercase;
+  margin: 12px 0 8px;
+}
 
 button.go {
   width: 100%;
   padding: 18px;
   background: var(--accent);
   border: none;
-  border-radius: 2px;
+  border-radius: 3px;
   color: var(--bg-0);
   font-family: var(--mono-font);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.16em;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.1s;
+  position: relative;
 }
-button.go:hover:not(:disabled) { background: #f0b890; }
-button.go:disabled { background: var(--line); color: var(--text-dim); cursor: not-allowed; }
+button.go:hover:not(:disabled) { background: #f0b890; transform: translateY(-1px); }
+button.go:active:not(:disabled) { transform: translateY(0); }
+button.go:disabled { background: var(--line); color: var(--text-faint); cursor: not-allowed; }
+button.go.processing { animation: pulse 2s ease-in-out infinite; }
+
+.timeline {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.tl-step {
+  padding: 10px 8px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-soft);
+  border-radius: 2px;
+  text-align: center;
+  font-family: var(--mono-font);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  transition: all 0.3s ease;
+  position: relative;
+}
+.tl-step.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-2);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.tl-step.done {
+  color: var(--mono);
+  border-color: var(--line);
+  background: var(--bg-1);
+}
+.tl-step.done::after {
+  content: '✓'; position: absolute; top: 4px; right: 6px; font-size: 9px;
+}
 
 .log {
   border: 1px solid var(--line);
-  border-radius: 2px;
+  border-radius: 3px;
   background: var(--bg-1);
-  padding: 20px;
+  padding: 18px 20px;
   font-family: var(--mono-font);
   font-size: 12px;
   line-height: 1.7;
-  max-height: 300px;
+  max-height: 280px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
-.log .line { display: grid; grid-template-columns: 90px 110px 1fr; gap: 12px; }
-.log .stage { color: var(--accent); }
-.log .ts { color: var(--text-dim); }
+.log::-webkit-scrollbar { width: 6px; }
+.log::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.log .line { display: grid; grid-template-columns: 80px 110px 1fr; gap: 10px; padding: 2px 0; animation: slideIn 0.25s ease both; }
+.log .stage { color: var(--accent); font-weight: 500; }
+.log .ts { color: var(--text-faint); }
 .log .msg { color: var(--text); }
+.log .pct { color: var(--text-dim); }
 .log .line.error .stage, .log .line.error .msg { color: var(--error); }
 .log .line.complete .stage, .log .line.complete .msg { color: var(--mono); }
 
-.outputs { display: grid; gap: 8px; }
+.outputs { display: grid; gap: 10px; }
 .output {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 16px;
+  padding: 18px 20px;
   background: var(--bg-1);
   border: 1px solid var(--line);
-  border-radius: 2px;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+  animation: fadeUp 0.3s ease both;
 }
+.output:hover { border-color: var(--accent-dim); background: var(--bg-2); transform: translateY(-1px); }
 .output .meta { display: flex; gap: 16px; align-items: baseline; }
-.output .kind { font-family: var(--serif); font-size: 22px; }
-.output .format { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; }
-.output .conf { font-family: var(--mono-font); font-size: 11px; color: var(--mono); }
+.output .kind { font-family: var(--serif); font-size: 24px; line-height: 1; }
+.output .format { font-family: var(--mono-font); font-size: 10px; color: var(--text-dim); letter-spacing: 0.14em; text-transform: uppercase; }
+.output .conf { font-family: var(--mono-font); font-size: 10px; color: var(--mono); letter-spacing: 0.06em; }
 .output a {
   color: var(--accent); text-decoration: none;
-  font-family: var(--mono-font); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: var(--mono-font); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase;
   border-bottom: 1px solid currentColor; padding-bottom: 2px;
+  transition: color 0.15s;
 }
 .output a:hover { color: #f0b890; }
+
+.export-path {
+  font-family: var(--mono-font);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--bg-1);
+  border-left: 2px solid var(--accent-dim);
+  border-radius: 0 3px 3px 0;
+  word-break: break-all;
+}
 
 footer {
   margin-top: 80px;
   padding-top: 24px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-soft);
   font-family: var(--mono-font);
-  font-size: 11px;
-  color: var(--text-dim);
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  display: flex;
+  justify-content: space-between;
+  text-transform: uppercase;
 }
 </style>
 </head>
@@ -209,31 +328,50 @@ footer {
 <main>
   <header>
     <h1>Justin's <em>Magic</em><br>Music Box</h1>
-    <p>Drop a song · Pick an instrument · Get notation</p>
+    <p class="tagline">Drop a song · Pick an instrument · Get notation</p>
   </header>
 
   <section>
-    <span class="label">01 / Audio</span>
+    <span class="label">01 — Audio</span>
     <label class="dropzone" id="dz">
       <p>Drag a file here</p>
-      <span class="hint">mp3 · wav · flac · m4a · aac · ogg</span>
-      <input type="file" id="file" accept=".mp3,.wav,.flac,.m4a,.aac,.ogg" />
+      <span class="hint">audio · mp3 wav flac m4a aac ogg opus<br>video · mp4 m4v mov mkv webm avi mpeg</span>
+      <input type="file" id="file" accept=".mp3,.wav,.flac,.m4a,.aac,.ogg,.opus,.mp4,.m4v,.mov,.mkv,.webm,.avi,.mpeg,.mpg,audio/*,video/*" />
     </label>
-    <div id="filePill" class="file-pill" style="display:none"></div>
+    <div id="filePill" class="file-pill" style="display:none">
+      <span id="fileName"></span>
+      <span class="x" id="clearFile" title="Remove">×</span>
+    </div>
+    <div class="upload-bar" id="uploadBar"><div class="fill" id="uploadFill"></div></div>
   </section>
 
   <section>
-    <span class="label">02 / Instrument</span>
+    <span class="label">02 — Focus</span>
     <div class="choices" id="choices">
-      <label class="choice selected">
-        <input type="radio" name="instrument" value="guitar" checked />
-        <div class="name">Guitar</div>
-        <div class="desc">→ Tabs (GP5, ASCII, MIDI)</div>
+      <label class="choice featured selected">
+        <input type="radio" name="instrument" value="auto" checked />
+        <div>
+          <div class="name">Auto-detect main melody</div>
+          <div class="desc">Demucs separates → loudest non-drum stem wins · drums + bleed dropped</div>
+        </div>
+        <span class="badge">Default</span>
+      </label>
+    </div>
+    <div class="override-label">— or force a specific instrument —</div>
+    <div class="override-row" id="overrideRow">
+      <label class="choice">
+        <input type="radio" name="instrument" value="guitar" />
+        <div>
+          <div class="name">Guitar</div>
+          <div class="desc">→ Tabs · GP5 · ASCII</div>
+        </div>
       </label>
       <label class="choice">
         <input type="radio" name="instrument" value="violin" />
-        <div class="name">Violin</div>
-        <div class="desc">→ Sheet music (PDF, MusicXML, MIDI)</div>
+        <div>
+          <div class="name">Violin</div>
+          <div class="desc">→ Sheet music · PDF</div>
+        </div>
       </label>
     </div>
   </section>
@@ -243,17 +381,26 @@ footer {
   </section>
 
   <section id="logSection" style="display:none">
-    <span class="label">03 / Pipeline</span>
+    <span class="label">03 — Pipeline</span>
+    <div class="timeline" id="timeline">
+      <div class="tl-step" data-stage="probe">Probe</div>
+      <div class="tl-step" data-stage="separate">Separate</div>
+      <div class="tl-step" data-stage="transcribe">Transcribe</div>
+      <div class="tl-step" data-stage="hero">Notation</div>
+      <div class="tl-step" data-stage="export">Export</div>
+    </div>
     <div class="log" id="log"></div>
   </section>
 
   <section id="outputsSection" style="display:none">
-    <span class="label">04 / Outputs</span>
+    <span class="label">04 — Outputs</span>
     <div class="outputs" id="outputs"></div>
+    <div class="export-path" id="exportPath" style="display:none"></div>
   </section>
 
   <footer>
-    Local-only · Phil hosts · Built for Justin · v0
+    <span>Local · Phil's Mac · 127.0.0.1:8768</span>
+    <span>v0.1.0</span>
   </footer>
 </main>
 
@@ -261,11 +408,17 @@ footer {
 const dz = document.getElementById('dz');
 const fileInput = document.getElementById('file');
 const filePill = document.getElementById('filePill');
+const fileName = document.getElementById('fileName');
+const clearBtn = document.getElementById('clearFile');
 const goBtn = document.getElementById('go');
 const logEl = document.getElementById('log');
 const logSection = document.getElementById('logSection');
 const outputsEl = document.getElementById('outputs');
 const outputsSection = document.getElementById('outputsSection');
+const uploadBar = document.getElementById('uploadBar');
+const uploadFill = document.getElementById('uploadFill');
+const exportPath = document.getElementById('exportPath');
+const timelineEl = document.getElementById('timeline');
 let selectedFile = null;
 
 document.querySelectorAll('.choice').forEach(c => {
@@ -273,8 +426,16 @@ document.querySelectorAll('.choice').forEach(c => {
     document.querySelectorAll('.choice').forEach(x => x.classList.remove('selected'));
     c.classList.add('selected');
     c.querySelector('input').checked = true;
+    updateHeroStep();
   });
 });
+
+function updateHeroStep() {
+  const inst = document.querySelector('input[name=instrument]:checked').value;
+  const heroStep = timelineEl.querySelector('[data-stage=hero]');
+  if (heroStep) heroStep.textContent = inst === 'guitar' ? 'Tabs' : inst === 'violin' ? 'Sheet' : 'Notate';
+}
+updateHeroStep();
 
 dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragging'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('dragging'));
@@ -285,22 +446,59 @@ dz.addEventListener('drop', (e) => {
 fileInput.addEventListener('change', () => {
   if (fileInput.files[0]) setFile(fileInput.files[0]);
 });
+clearBtn.addEventListener('click', (e) => {
+  e.preventDefault(); e.stopPropagation();
+  selectedFile = null; fileInput.value = '';
+  filePill.style.display = 'none';
+  dz.classList.remove('has-file');
+  goBtn.disabled = true;
+});
 
+const VIDEO_EXTS = new Set(['mp4','m4v','mov','mkv','webm','avi','mpeg','mpg']);
 function setFile(f) {
   selectedFile = f;
-  filePill.textContent = `${f.name} · ${(f.size / 1024 / 1024).toFixed(2)} MB`;
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  const kind = VIDEO_EXTS.has(ext) ? '🎥' : '♪';
+  fileName.textContent = `${kind}  ${f.name} · ${(f.size / 1024 / 1024).toFixed(2)} MB`;
   filePill.style.display = 'inline-flex';
+  dz.classList.add('has-file');
   goBtn.disabled = false;
 }
 
 function fmtTs(ts) {
-  return new Date(ts * 1000).toLocaleTimeString();
+  return new Date(ts * 1000).toLocaleTimeString('en-US', { hour12: false });
+}
+
+const STAGE_ORDER = ['probe', 'separate', 'detect', 'transcribe', 'tabs', 'notation', 'export', 'complete'];
+const STAGE_TO_STEP = { probe: 'probe', separate: 'separate', detect: 'separate', transcribe: 'transcribe', tabs: 'hero', notation: 'hero', export: 'export' };
+
+function setStageState(payload) {
+  const step = STAGE_TO_STEP[payload.stage];
+  if (!step) return;
+  // mark previous steps done
+  for (const s of timelineEl.querySelectorAll('.tl-step')) {
+    s.classList.remove('active');
+  }
+  const cur = timelineEl.querySelector(`[data-stage=${step}]`);
+  if (cur) cur.classList.add('active');
+  if (payload.progress === 1.0 || payload.stage === 'complete') {
+    if (cur) { cur.classList.remove('active'); cur.classList.add('done'); }
+  }
+  // mark all steps before this as done
+  const idx = ['probe','separate','transcribe','hero','export'].indexOf(step);
+  timelineEl.querySelectorAll('.tl-step').forEach((s, i) => {
+    if (i < idx) s.classList.add('done');
+  });
+  if (payload.stage === 'complete') {
+    timelineEl.querySelectorAll('.tl-step').forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
+  }
 }
 
 function appendLog(payload, klass = '') {
   const div = document.createElement('div');
   div.className = 'line ' + klass;
-  div.innerHTML = `<span class="ts">${fmtTs(payload.ts || Date.now() / 1000)}</span><span class="stage">${payload.stage || ''}</span><span class="msg">${payload.message || ''}${payload.progress != null ? ` <span style="color:var(--text-dim)">(${Math.round(payload.progress * 100)}%)</span>` : ''}</span>`;
+  const pct = payload.progress != null ? `<span class="pct">${Math.round(payload.progress * 100)}%</span>` : '';
+  div.innerHTML = `<span class="ts">${fmtTs(payload.ts || Date.now() / 1000)}</span><span class="stage">${payload.stage || ''}</span><span class="msg">${(payload.message || '')} ${pct}</span>`;
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
 }
@@ -313,40 +511,70 @@ async function loadOutputs(jobId) {
   for (const o of j.outputs) {
     const div = document.createElement('div');
     div.className = 'output';
-    const conf = o.confidence != null ? `<span class="conf">conf ${o.confidence}</span>` : '';
+    const conf = o.confidence != null ? `<span class="conf">conf ${(o.confidence * 100).toFixed(0)}%</span>` : '';
     div.innerHTML = `<div class="meta"><span class="kind">${o.kind}</span><span class="format">${o.format}</span>${conf}</div><a href="/api/jobs/${jobId}/output/${o.id}" download>Download</a>`;
     outputsEl.appendChild(div);
   }
+  // Show export path
+  const slug = (j.source_filename || '').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9._-]/g, '-');
+  exportPath.textContent = `Files copied to: ~/Music/Justin's Magic Music Box/${slug}/`;
+  exportPath.style.display = 'block';
+}
+
+function uploadWithProgress(formData, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload');
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    });
+    xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve(JSON.parse(xhr.responseText)) : reject(xhr.responseText);
+    xhr.onerror = () => reject('network error');
+    xhr.send(formData);
+  });
 }
 
 goBtn.addEventListener('click', async () => {
   if (!selectedFile) return;
   goBtn.disabled = true;
   goBtn.textContent = 'Uploading…';
+  goBtn.classList.add('processing');
   logEl.innerHTML = '';
-  logSection.style.display = 'block';
+  outputsEl.innerHTML = '';
   outputsSection.style.display = 'none';
+  exportPath.style.display = 'none';
+  logSection.style.display = 'block';
+  uploadBar.classList.add('active');
+  uploadFill.style.width = '0%';
+  // reset timeline
+  timelineEl.querySelectorAll('.tl-step').forEach(s => { s.classList.remove('active', 'done'); });
 
   const fd = new FormData();
   fd.append('file', selectedFile);
   fd.append('instrument', document.querySelector('input[name=instrument]:checked').value);
 
-  const r = await fetch('/api/upload', { method: 'POST', body: fd });
-  if (!r.ok) {
-    const err = await r.text();
+  let job;
+  try {
+    job = await uploadWithProgress(fd, (p) => {
+      uploadFill.style.width = `${Math.round(p * 100)}%`;
+    });
+  } catch (err) {
     appendLog({ stage: 'upload', message: `failed: ${err}`, ts: Date.now() / 1000 }, 'error');
+    uploadBar.classList.remove('active');
     goBtn.disabled = false;
     goBtn.textContent = 'Process';
+    goBtn.classList.remove('processing');
     return;
   }
-  const job = await r.json();
-  appendLog({ stage: 'queued', message: `Job ${job.job_id} · ${job.duration_s.toFixed(1)}s @ ${job.sample_rate}Hz`, ts: Date.now() / 1000 });
+  uploadBar.classList.remove('active');
+  appendLog({ stage: 'queued', message: `Job ${job.job_id.slice(-8)} · ${job.duration_s.toFixed(1)}s @ ${job.sample_rate}Hz`, ts: Date.now() / 1000 });
   goBtn.textContent = 'Processing…';
 
   const es = new EventSource(`/api/jobs/${job.job_id}/events`);
   es.addEventListener('progress', (ev) => {
     const data = JSON.parse(ev.data);
     appendLog(data, data.stage === 'failed' ? 'error' : data.stage === 'complete' ? 'complete' : '');
+    setStageState(data);
   });
   es.addEventListener('done', async (ev) => {
     es.close();
@@ -354,11 +582,13 @@ goBtn.addEventListener('click', async () => {
     if (data.state === 'complete') await loadOutputs(job.job_id);
     goBtn.disabled = false;
     goBtn.textContent = 'Process';
+    goBtn.classList.remove('processing');
   });
   es.addEventListener('error', () => {
     es.close();
     goBtn.disabled = false;
     goBtn.textContent = 'Process';
+    goBtn.classList.remove('processing');
   });
 });
 </script>
