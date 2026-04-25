@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv*/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# uv
+uv.lock
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Local app data should NEVER be committed
+data/
+*.sqlite
+*.sqlite-journal
+
+# Audio test fixtures (large)
+tests/fixtures/*.wav
+tests/fixtures/*.mp3
+tests/fixtures/*.flac
+tests/fixtures/*.m4a
+
+# Generated outputs
+*.mid
+*.musicxml
+*.gp5
+*.cho
+
+# Logs
+*.log
