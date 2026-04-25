@@ -367,6 +367,16 @@ footer a:hover { color: var(--accent); border-color: var(--accent); }
 <span class="cmd">just</span> dev      <span class="comment"># → http://127.0.0.1:8768</span></pre>
 </section>
 
+<!-- ───────── Share ───────── -->
+<section>
+  <span class="label">Share temporarily</span>
+  <h2>One command, <em>public URL</em>.</h2>
+  <p>If you want to let a friend try it without making them install anything, run <code class="inline">just share</code>. A <strong>Cloudflare quick tunnel</strong> spins up in seconds and prints a public <code class="inline">https://*.trycloudflare.com</code> URL pointed at your local instance. Ctrl+C stops it. No Cloudflare account or domain required.</p>
+  <pre class="code"><span class="cmd">brew install</span> cloudflared   <span class="comment"># one-time</span>
+<span class="cmd">just</span> share              <span class="comment"># prints the URL · Ctrl+C to stop</span>
+<span class="cmd">just</span> share-status       <span class="comment"># show current URL</span></pre>
+</section>
+
 <!-- ───────── Sample output ───────── -->
 <section>
   <span class="label">Sample output (guitar, ASCII tab)</span>

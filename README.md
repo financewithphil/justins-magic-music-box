@@ -26,8 +26,19 @@ Full plan: see `Projects/Justins Magic Music Box.md` in Obsidian.
 ```bash
 cd ~/projects/justins-magic-music-box
 just bootstrap   # one-time: install deps, create venvs, fetch models
-just dev         # run API on http://127.0.0.1:8765
+just dev         # run API on http://127.0.0.1:8768
 ```
+
+## Share with someone temporarily (Cloudflare quick tunnel)
+
+```bash
+just share       # opens a public https://*.trycloudflare.com URL
+                 # paste it to whoever; Ctrl+C to stop
+just share-status
+just share-stop
+```
+
+No Cloudflare account or domain needed. URL changes every restart. The local app keeps running when the tunnel stops. Requires `brew install cloudflared` (one-time).
 
 ## Layout
 

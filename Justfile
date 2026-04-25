@@ -15,6 +15,21 @@ dev:
 health:
     @curl -s http://127.0.0.1:8768/api/health | python3 -m json.tool
 
+# Open the local app to a public Cloudflare Tunnel URL while you're around.
+share:
+    @bash scripts/share.sh
+
+share-status:
+    @if pgrep -f "cloudflared tunnel" >/dev/null; then \
+        echo "Tunnel running. Active URL:"; \
+        grep -oE "https://[a-z0-9-]+\.trycloudflare\.com" /tmp/jmb-tunnel.log 2>/dev/null | tail -1 || echo "(URL not in log yet)"; \
+    else \
+        echo "Tunnel not running."; \
+    fi
+
+share-stop:
+    @pkill -f "cloudflared tunnel" 2>/dev/null && echo "Tunnel stopped." || echo "No tunnel running."
+
 clean-venvs:
     rm -rf app/.venv workers/*/.venv
 
