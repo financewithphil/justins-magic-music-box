@@ -1,6 +1,12 @@
 # Justin's Magic Music Box
 
-Local-first macOS app: drop in a song → get instrument stems + the notation a musician needs to play it.
+[![MIT](https://img.shields.io/badge/license-MIT-e8a87c?style=flat-square)](LICENSE)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-7fb09f?style=flat-square)](https://www.python.org/)
+[![Local-first](https://img.shields.io/badge/runs-locally-7fb09f?style=flat-square)](#)
+
+**Landing page →** [financewithphil.github.io/justins-magic-music-box](https://financewithphil.github.io/justins-magic-music-box/)
+
+Local-first macOS app: drop in a song or video → isolate the lead instrument → get sheet music or guitar tabs you can actually play.
 
 **v0 scope (built for Justin):**
 - Hero outputs: **guitar tabs** (GP5 + ASCII + MIDI) and **violin sheet music** (MusicXML + PDF + MIDI)

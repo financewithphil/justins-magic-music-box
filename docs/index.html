@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Justin's Magic Music Box · Local-first audio → notation</title>
+<meta name="description" content="A local macOS app: drop a song or video, isolate the lead instrument, get sheet music or guitar tabs. Free + open source." />
+<meta property="og:title" content="Justin's Magic Music Box" />
+<meta property="og:description" content="Local-first macOS app: audio/video in → guitar tabs or sheet music out. Demucs + Basic Pitch + MuseScore." />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg-0: #0a0b14;
+  --bg-1: #11131f;
+  --bg-2: #1a1d2e;
+  --line: #2a2d40;
+  --line-soft: #1f2233;
+  --text: #f4ecd8;
+  --text-dim: #8a8d9f;
+  --text-faint: #5a5d6f;
+  --accent: #e8a87c;
+  --accent-dim: #b88662;
+  --mono: #7fb09f;
+  --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono-font: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+html, body {
+  background: var(--bg-0);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(80vw 60vh at 75% 5%, rgba(232,168,124,0.10), transparent 60%),
+    radial-gradient(70vw 50vh at 15% 90%, rgba(127,176,159,0.07), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.025 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: overlay;
+}
+
+.wrap {
+  position: relative; z-index: 2;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 96px 32px 160px;
+}
+@media (max-width: 600px) { .wrap { padding: 56px 20px 80px; } }
+
+.label {
+  font-family: var(--mono-font);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
+  margin-bottom: 18px;
+  display: flex; align-items: center; gap: 10px;
+}
+.label::before { content: ''; flex: 0 0 16px; height: 1px; background: var(--line); }
+
+/* ───────── Hero ───────── */
+header.hero { margin-bottom: 96px; animation: fadeUp 0.6s ease both; }
+header.hero p.kicker {
+  font-family: var(--mono-font);
+  font-size: 11px;
+  color: var(--accent-dim);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+h1 {
+  font-family: var(--serif);
+  font-size: clamp(56px, 9vw, 112px);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 0.92;
+  margin-bottom: 24px;
+}
+h1 em { font-style: italic; color: var(--accent); }
+header.hero p.lede {
+  font-family: var(--serif);
+  font-size: clamp(20px, 2.8vw, 28px);
+  line-height: 1.4;
+  color: var(--text-dim);
+  max-width: 640px;
+  margin-bottom: 36px;
+}
+header.hero p.lede em { font-style: italic; color: var(--text); }
+.cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 22px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-family: var(--mono-font);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--bg-1);
+  transition: all 0.15s ease;
+}
+.btn:hover { border-color: var(--accent); background: var(--bg-2); transform: translateY(-1px); }
+.btn.primary { background: var(--accent); color: var(--bg-0); border-color: var(--accent); }
+.btn.primary:hover { background: #f0b890; }
+.btn svg { width: 14px; height: 14px; }
+
+/* ───────── Sections ───────── */
+section { margin-bottom: 80px; animation: fadeUp 0.6s ease both; }
+h2 {
+  font-family: var(--serif);
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  margin-bottom: 24px;
+}
+h2 em { font-style: italic; color: var(--accent); }
+p { color: var(--text-dim); max-width: 640px; margin-bottom: 16px; }
+p strong { color: var(--text); font-weight: 500; }
+
+/* ───────── Code ───────── */
+pre.code, pre.tab {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 22px 24px;
+  font-family: var(--mono-font);
+  font-size: 13px;
+  color: var(--text);
+  overflow-x: auto;
+  line-height: 1.7;
+}
+pre.code .comment { color: var(--text-faint); }
+pre.code .cmd { color: var(--accent); }
+code.inline {
+  font-family: var(--mono-font);
+  font-size: 0.88em;
+  background: var(--bg-1);
+  border: 1px solid var(--line-soft);
+  padding: 2px 7px;
+  border-radius: 2px;
+  color: var(--mono);
+}
+
+/* ───────── Pipeline diagram ───────── */
+.pipe { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 24px; }
+@media (max-width: 700px) { .pipe { grid-template-columns: 1fr 1fr; } }
+.pipe .step {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 18px 14px;
+  text-align: center;
+}
+.pipe .step .n {
+  font-family: var(--mono-font); font-size: 10px;
+  color: var(--accent-dim); letter-spacing: 0.18em; margin-bottom: 8px;
+}
+.pipe .step .name {
+  font-family: var(--serif); font-size: 22px; line-height: 1.1; color: var(--text);
+}
+.pipe .step .what {
+  font-family: var(--mono-font); font-size: 10px; color: var(--text-dim);
+  margin-top: 6px; letter-spacing: 0.04em;
+}
+
+/* ───────── Mode cards ───────── */
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .modes { grid-template-columns: 1fr; } }
+.mode-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 28px;
+}
+.mode-card h3 {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+.mode-card h3 em { font-style: italic; color: var(--accent); }
+.mode-card p { font-size: 14px; line-height: 1.6; color: var(--text-dim); }
+.mode-card ul {
+  margin-top: 14px; padding-left: 0; list-style: none;
+}
+.mode-card li {
+  font-family: var(--mono-font); font-size: 12px; color: var(--text); padding: 4px 0;
+}
+.mode-card li::before { content: '→ '; color: var(--accent-dim); }
+
+/* ───────── Output formats ───────── */
+.formats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.format {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.format .ext {
+  font-family: var(--mono-font); font-size: 12px;
+  color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase;
+}
+.format .desc { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); }
+
+/* ───────── Reality table ───────── */
+table.reality {
+  width: 100%; border-collapse: collapse; margin-top: 16px;
+  font-family: var(--mono-font); font-size: 12px;
+}
+table.reality th, table.reality td {
+  text-align: left; padding: 10px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+table.reality th {
+  font-weight: 500; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px;
+}
+table.reality td { color: var(--text); }
+table.reality .ok { color: var(--mono); }
+table.reality .mid { color: var(--accent); }
+table.reality .bad { color: #e87c7c; }
+
+/* ───────── Tech badges ───────── */
+.stack { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.badge {
+  font-family: var(--mono-font); font-size: 10px;
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 2px;
+  color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+}
+
+/* ───────── Footer ───────── */
+footer {
+  margin-top: 120px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line-soft);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  font-family: var(--mono-font); font-size: 11px; color: var(--text-faint);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+footer a { color: var(--text-dim); text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 1px; }
+footer a:hover { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">A local-first macOS app · MIT</p>
+  <h1>Justin's <em>Magic</em><br>Music Box</h1>
+  <p class="lede">
+    Drop a song or video. The pipeline isolates the <em>main melody</em>, ignores everything else, and gives you sheet music or guitar tabs you can actually play.
+  </p>
+  <div class="cta-row">
+    <a class="btn primary" href="https://github.com/financewithphil/justins-magic-music-box">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 005.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View on GitHub
+    </a>
+    <a class="btn" href="#quick-start">Quick start</a>
+    <a class="btn" href="#reality-check">Honest accuracy</a>
+  </div>
+</header>
+
+<!-- ───────── What it does ───────── -->
+<section>
+  <span class="label">What it does</span>
+  <h2>Audio in, <em>notation</em> out.</h2>
+  <p>
+    Built for a friend who plays many instruments. You drop in <strong>any audio or video</strong> — mp3, flac, an mp4 screen recording, whatever — and the pipeline does five things:
+  </p>
+  <p>
+    <strong>(1)</strong> Strips audio and normalizes it. <strong>(2)</strong> Runs <strong>Demucs</strong> to separate the mix into 6 stems (vocals · drums · bass · guitar · piano · other). <strong>(3)</strong> Picks the loudest non-drum stem as the lead — drums and bleed are dropped. <strong>(4)</strong> Transcribes that stem to MIDI with <strong>Spotify's Basic Pitch</strong>. <strong>(5)</strong> Renders sheet music (PDF + MusicXML via <strong>MuseScore</strong>) for melodic instruments, or guitar tabs (GP5 + ASCII via a Viterbi DP string/fret allocator) for guitar.
+  </p>
+  <p>
+    Everything runs on your Mac. No cloud, no API keys, no telemetry. Outputs auto-export to <code class="inline">~/Music/Justin's Magic Music Box/&lt;song&gt;/</code>.
+  </p>
+</section>
+
+<!-- ───────── Pipeline ───────── -->
+<section>
+  <span class="label">Pipeline</span>
+  <h2>Five stages, <em>stream</em> over SSE.</h2>
+  <div class="pipe">
+    <div class="step"><div class="n">01</div><div class="name">Probe</div><div class="what">ffprobe + ffmpeg<br>normalize 44.1k</div></div>
+    <div class="step"><div class="n">02</div><div class="name">Separate</div><div class="what">Demucs htdemucs_6s<br>MPS · CPU fallback</div></div>
+    <div class="step"><div class="n">03</div><div class="name">Detect</div><div class="what">Loudest non-drum<br>stem wins</div></div>
+    <div class="step"><div class="n">04</div><div class="name">Transcribe</div><div class="what">Basic Pitch<br>ONNX · MIDI</div></div>
+    <div class="step"><div class="n">05</div><div class="name">Notate</div><div class="what">MuseScore PDF<br>or GP5 tabs</div></div>
+  </div>
+</section>
+
+<!-- ───────── Two axes of choice ───────── -->
+<section>
+  <span class="label">Two knobs</span>
+  <h2>Auto-detect, or <em>force</em> an instrument. Full, or <em>novice</em>-readable.</h2>
+  <div class="modes">
+    <div class="mode-card">
+      <h3>Focus</h3>
+      <p>Auto looks at every Demucs stem (drums excluded) and picks the loudest as the lead. The pipeline log shows the dB ranking so you can see exactly which instrument won.</p>
+      <ul>
+        <li>Auto · default</li>
+        <li>Guitar · forces tabs</li>
+        <li>Violin · forces sparse-source pre-flight</li>
+      </ul>
+    </div>
+    <div class="mode-card">
+      <h3>Complexity</h3>
+      <p>Novice mode drops low-confidence and ultra-short notes from Basic Pitch, snaps onsets to a quarter-note grid, biases the tab allocator toward open positions, and uses wider ASCII tab spacing.</p>
+      <ul>
+        <li>Full · faithful 16ths + triplets</li>
+        <li>Novice · readable for a beginner</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ───────── Quick start ───────── -->
+<section id="quick-start">
+  <span class="label">Quick start</span>
+  <h2>Run it on your <em>Mac</em>.</h2>
+  <p>Apple Silicon recommended (uses MPS for Demucs). Initial install is ~6 GB; first Demucs run downloads ~80 MB of model weights on demand.</p>
+  <pre class="code"><span class="comment"># 1. one-time: install brew deps</span>
+<span class="cmd">brew install</span> ffmpeg uv just
+<span class="cmd">brew install --cask</span> musescore
+
+<span class="comment"># 2. clone + bootstrap</span>
+<span class="cmd">git clone</span> https://github.com/financewithphil/justins-magic-music-box.git
+<span class="cmd">cd</span> justins-magic-music-box
+<span class="cmd">cd</span> app && uv sync --python 3.11 && cd ..
+<span class="cmd">cd</span> workers/demucs && uv sync --python 3.11 --no-install-project && cd ../..
+<span class="cmd">cd</span> workers/basicpitch && uv sync --python 3.11 --no-install-project && cd ../..
+
+<span class="comment"># 3. run</span>
+<span class="cmd">just</span> dev      <span class="comment"># → http://127.0.0.1:8768</span></pre>
+</section>
+
+<!-- ───────── Sample output ───────── -->
+<section>
+  <span class="label">Sample output (guitar, ASCII tab)</span>
+  <h2>What comes out.</h2>
+  <p>From a 4.8&nbsp;s C-major scale test melody — Demucs <code class="inline">htdemucs_6s</code> isolated the guitar stem, Basic Pitch transcribed 8 notes, the DP allocator placed them on the fretboard:</p>
+<pre class="tab">jmb_test_melody
+
+e|----------------|----------------|------|
+B|----------------|--------11---12-|-13---|
+G|5---7-7-7--9-10-|10---12---------|------|
+D|----------------|----------------|------|
+A|----------------|----------------|------|
+E|----------------|----------------|------|</pre>
+  <p style="margin-top:18px">A real song produces full GP5 tab files (open in Guitar Pro / TuxGuitar) plus MIDI for editing in Logic / MuseScore.</p>
+</section>
+
+<!-- ───────── Output formats ───────── -->
+<section>
+  <span class="label">Outputs</span>
+  <h2>Whatever fits your <em>workflow</em>.</h2>
+  <div class="formats">
+    <div class="format"><span class="ext">PDF</span><span class="desc">Sheet music (MuseScore)</span></div>
+    <div class="format"><span class="ext">MusicXML</span><span class="desc">Open in any notation app</span></div>
+    <div class="format"><span class="ext">GP5</span><span class="desc">Guitar Pro 5 tab</span></div>
+    <div class="format"><span class="ext">ASCII</span><span class="desc">Plain-text tab</span></div>
+    <div class="format"><span class="ext">MIDI</span><span class="desc">Always emitted</span></div>
+  </div>
+</section>
+
+<!-- ───────── Reality check ───────── -->
+<section id="reality-check">
+  <span class="label">Honest accuracy</span>
+  <h2>What works well, what <em>doesn't</em>.</h2>
+  <p>Polyphonic-audio-to-tablature is an unsolved research problem. This pipeline gives you a <strong>starting point</strong>, not a finished score. Always check the MIDI output and edit by hand for anything you'd actually perform.</p>
+  <table class="reality">
+    <tr><th>Scenario</th><th>Sheet music</th><th>Guitar tab</th></tr>
+    <tr><td>Solo piano</td><td class="ok">Excellent</td><td>—</td></tr>
+    <tr><td>Singer-songwriter (acoustic + voice)</td><td class="ok">Good</td><td class="mid">OK</td></tr>
+    <tr><td>Pop / EDM</td><td class="mid">Mid (vocal melody fine)</td><td class="bad">Bad</td></tr>
+    <tr><td>Rock band, dense mix</td><td class="mid">Mid</td><td class="mid">Mid–bad</td></tr>
+    <tr><td>Metal</td><td class="mid">Vocals only</td><td class="bad">Bad</td></tr>
+    <tr><td>Jazz with extended chords</td><td class="mid">Mid (Chordino vocab limited)</td><td class="mid">Mid</td></tr>
+  </table>
+</section>
+
+<!-- ───────── Stack ───────── -->
+<section>
+  <span class="label">Stack</span>
+  <h2>Free + open source, <em>top to bottom</em>.</h2>
+  <div class="stack">
+    <span class="badge">Python 3.11</span>
+    <span class="badge">FastAPI</span>
+    <span class="badge">SQLAlchemy 2</span>
+    <span class="badge">SQLite</span>
+    <span class="badge">uv</span>
+    <span class="badge">Demucs v4</span>
+    <span class="badge">PyTorch · MPS</span>
+    <span class="badge">Basic Pitch</span>
+    <span class="badge">ONNX Runtime</span>
+    <span class="badge">music21</span>
+    <span class="badge">MuseScore 4</span>
+    <span class="badge">pyguitarpro</span>
+    <span class="badge">librosa</span>
+    <span class="badge">Vanilla HTML/JS</span>
+    <span class="badge">Instrument Serif · OFL</span>
+  </div>
+</section>
+
+<footer>
+  <span>Built for Justin · by Phil at Intellovate.ai</span>
+  <span><a href="https://github.com/financewithphil/justins-magic-music-box">GitHub</a> · <a href="https://github.com/financewithphil/justins-magic-music-box/blob/main/LICENSE">MIT</a></span>
+</footer>
+
+</div>
+</body>
+</html>
