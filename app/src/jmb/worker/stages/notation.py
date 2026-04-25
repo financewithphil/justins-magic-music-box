@@ -65,8 +65,11 @@ async def musicxml_to_pdf(musicxml_path: Path, pdf_path: Path) -> None:
         "qt.qml.typeregistration.warning=false;qt.qml.typeregistration=false",
     )
 
+    # -f (force) tells MuseScore to ignore warnings and produce the file anyway.
+    # Without it, music21-generated MusicXML triggers warnings escalated to errors
+    # (exit 40 with no PDF), even though the score is fine. See test_notation.py.
     proc = await asyncio.create_subprocess_exec(
-        MUSESCORE_BIN, "-o", str(pdf_path), str(musicxml_path),
+        MUSESCORE_BIN, "-f", "-o", str(pdf_path), str(musicxml_path),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         env=env,
     )

@@ -85,3 +85,25 @@ def test_musescore_raises_when_input_missing(tmp_path):
         asyncio.run(musicxml_to_pdf(missing, pdf))
 
     assert not pdf.exists()
+
+
+@needs_musescore
+def test_musescore_renders_music21_bass_fixture(tmp_path):
+    """Regression for 2026-04-25 exit-40 bug.
+
+    A bass-stem MusicXML produced by music21 from a screen recording's
+    audio crashed MuseScore (exit 40, no PDF, only QML warnings on
+    stderr) — even though MIDI/PNG/SVG/MSCZ also failed, so it wasn't a
+    PDF-specific issue. The -f (force) flag tells MuseScore to ignore
+    warnings and still emit the file. This fixture is a copy of the
+    actual file that triggered the bug.
+    """
+    fixture = Path(__file__).parent / "fixtures" / "bass_music21.musicxml"
+    assert fixture.exists(), f"missing regression fixture: {fixture}"
+
+    pdf = tmp_path / "bass.pdf"
+    asyncio.run(musicxml_to_pdf(fixture, pdf))
+
+    assert pdf.exists(), "MuseScore failed to produce a PDF for the bass fixture"
+    assert pdf.stat().st_size > 1024
+    assert pdf.read_bytes()[:5] == b"%PDF-"

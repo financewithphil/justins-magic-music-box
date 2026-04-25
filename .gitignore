@@ -35,11 +35,15 @@ tests/fixtures/*.mp3
 tests/fixtures/*.flac
 tests/fixtures/*.m4a
 
-# Generated outputs
+# Generated outputs (anywhere in the tree EXCEPT committed test fixtures)
 *.mid
 *.musicxml
 *.gp5
 *.cho
+!app/tests/fixtures/*.mid
+!app/tests/fixtures/*.musicxml
+!app/tests/fixtures/*.gp5
+!app/tests/fixtures/*.cho
 
 # Logs
 *.log
