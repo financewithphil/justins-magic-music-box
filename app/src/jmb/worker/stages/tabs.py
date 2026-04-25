@@ -31,29 +31,35 @@ def positions_for_pitch(pitch: int) -> list[TabPos]:
     return out
 
 
-def _transition_cost(a: TabPos, b: TabPos) -> float:
-    return abs(a.fret - b.fret) + 0.5 * abs(a.string_idx - b.string_idx)
+def _transition_cost(a: TabPos, b: TabPos, *, string_change_penalty: float = 0.5) -> float:
+    return abs(a.fret - b.fret) + string_change_penalty * abs(a.string_idx - b.string_idx)
 
 
-def allocate(pitches: list[int]) -> list[TabPos | None]:
-    """Viterbi DP over per-note position options. Out-of-range notes become None."""
+def allocate(pitches: list[int], *, simple: bool = False) -> list[TabPos | None]:
+    """Viterbi DP over per-note position options. Out-of-range notes become None.
+
+    `simple=True` biases toward low frets (open positions) — easier for novices
+    even at the cost of some hand-movement efficiency.
+    """
     n = len(pitches)
     if n == 0:
         return []
 
     options: list[list[TabPos]] = [positions_for_pitch(p) for p in pitches]
 
-    # cost[i][j] = min total cost to be at options[i][j] after note i
-    # back[i][j] = chosen options[i-1] index that produced it
+    fret_bias = 0.5 if simple else 0.0           # cost-per-fret of being at any fret
+    initial_target = 0 if simple else 5          # prefer open in simple, mid-neck in full
+    initial_weight = 0.4 if simple else 0.1
+    string_change_penalty = 1.0 if simple else 0.5
+
     cost: list[list[float]] = [[INF] * len(o) for o in options]
     back: list[list[int]] = [[-1] * len(o) for o in options]
 
     if not options[0]:
         cost[0] = []
     else:
-        # bias toward middle of fretboard at start
         for j, pos in enumerate(options[0]):
-            cost[0][j] = abs(pos.fret - 5) * 0.1
+            cost[0][j] = abs(pos.fret - initial_target) * initial_weight + pos.fret * fret_bias
 
     last_idx_with_options = 0 if options[0] else -1
 
@@ -62,7 +68,7 @@ def allocate(pitches: list[int]) -> list[TabPos | None]:
             continue
         if last_idx_with_options < 0:
             for j, pos in enumerate(options[i]):
-                cost[i][j] = abs(pos.fret - 5) * 0.1
+                cost[i][j] = abs(pos.fret - initial_target) * initial_weight + pos.fret * fret_bias
             last_idx_with_options = i
             continue
         prev_options = options[last_idx_with_options]
@@ -71,7 +77,9 @@ def allocate(pitches: list[int]) -> list[TabPos | None]:
             best = INF
             best_k = -1
             for k, pos_k in enumerate(prev_options):
-                t = prev_costs[k] + _transition_cost(pos_k, pos_j)
+                t = (prev_costs[k]
+                     + _transition_cost(pos_k, pos_j, string_change_penalty=string_change_penalty)
+                     + pos_j.fret * fret_bias)
                 if t < best:
                     best = t
                     best_k = k
@@ -79,7 +87,6 @@ def allocate(pitches: list[int]) -> list[TabPos | None]:
             back[i][j] = best_k
         last_idx_with_options = i
 
-    # backtrace
     result: list[TabPos | None] = [None] * n
     if last_idx_with_options < 0:
         return result
@@ -104,20 +111,20 @@ def allocate(pitches: list[int]) -> list[TabPos | None]:
 
 
 def render_ascii_tab(notes: list[dict], positions: list[TabPos | None],
-                      title: str = "Tab", measures_per_line: int = 4) -> str:
+                      title: str = "Tab", measures_per_line: int = 4,
+                      *, simple: bool = False) -> str:
     """Group notes into measures by onset and render a 6-line ASCII tab.
 
-    `notes` is the Basic Pitch sidecar list; we use onset/offset for layout.
-    Simple time-grid: 16 columns per measure (16th-note grid). Tempo is approximated.
+    `simple=True` uses a quarter-note grid (4 cols/measure) — wider spacing,
+    easier to follow.  `simple=False` uses a 16th-note grid (16 cols/measure).
     """
     if not notes:
         return f"{title}\n(empty)\n"
 
     end_t = max(n["offset"] for n in notes)
-    # crude tempo: aim for ~120 BPM @ 4/4 → 0.125s per 16th
-    seconds_per_col = 0.125
-    total_cols = max(16, int(end_t / seconds_per_col) + 1)
-    cols_per_measure = 16
+    seconds_per_col = 0.5 if simple else 0.125
+    cols_per_measure = 4 if simple else 16
+    total_cols = max(cols_per_measure, int(end_t / seconds_per_col) + 1)
 
     lines = ["e|", "B|", "G|", "D|", "A|", "E|"]
     grid: list[list[str]] = [["-"] * total_cols for _ in range(6)]
@@ -206,18 +213,18 @@ def write_gp5(notes: list[dict], positions: list[TabPos | None], gp_path: Path,
 
 def build_guitar_tabs(midi_path: Path, notes_json_path: Path,
                        gp_path: Path, ascii_path: Path,
-                       title: str = "Tab") -> dict:
+                       title: str = "Tab", *, simple: bool = False) -> dict:
     import json as _json
 
     notes = _json.loads(Path(notes_json_path).read_text())
     notes = sorted(notes, key=lambda n: n["onset"])
     pitches = [n["pitch"] for n in notes]
-    positions = allocate(pitches)
+    positions = allocate(pitches, simple=simple)
 
     placed = sum(1 for p in positions if p is not None)
     confidence = placed / max(1, len(positions))
 
-    ascii_path.write_text(render_ascii_tab(notes, positions, title=title))
+    ascii_path.write_text(render_ascii_tab(notes, positions, title=title, simple=simple))
     try:
         write_gp5(notes, positions, gp_path, title=title)
         gp_ok = True

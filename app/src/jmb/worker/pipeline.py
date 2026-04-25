@@ -25,6 +25,7 @@ from .stages.detect import pick_dominant_stem, stem_to_output
 from .stages.notation import build_sheet
 from .stages.probe import is_sparse
 from .stages.separate import run_demucs
+from .stages.simplify import simplify_notes
 from .stages.tabs import build_guitar_tabs
 from .stages.transcribe import run_basicpitch
 
@@ -59,6 +60,8 @@ async def process_job(job_id: str) -> None:
         if not job:
             return
         instrument_pref = (job.instrument or "auto").lower()
+        complexity = (job.complexity or "full").lower()
+        simple = complexity == "simple"
         source_path = Path(job.source_path)
         slug = safe_slug(job.source_filename)
         title = Path(job.source_filename).stem
@@ -132,6 +135,16 @@ async def process_job(job_id: str) -> None:
         midi_path = Path(bp["midi"])
         notes_json = Path(bp["notes"])
 
+        if simple:
+            import json
+            raw = json.loads(notes_json.read_text())
+            cleaned = simplify_notes(raw)
+            notes_json.write_text(json.dumps(cleaned))
+            bus.emit(job_id, "simplify",
+                     f"Novice mode: {len(raw)} → {len(cleaned)} notes "
+                     f"(filtered low-confidence + snapped to 0.25s grid)",
+                     progress=1.0)
+
         outputs_for_export: list[Path] = [midi_path]
 
         # 4. Hero output
@@ -140,7 +153,8 @@ async def process_job(job_id: str) -> None:
             tabs_d = tabs_dir(job_id)
             ascii_path = tabs_d / f"{instrument_label}.tab.txt"
             gp5_path = tabs_d / f"{instrument_label}.gp5"
-            t = build_guitar_tabs(midi_path, notes_json, gp5_path, ascii_path, title=title)
+            t = build_guitar_tabs(midi_path, notes_json, gp5_path, ascii_path,
+                                   title=title, simple=simple)
             bus.emit(job_id, "tabs",
                      f"{t['note_count']} notes mapped (confidence {t['confidence']})",
                      progress=1.0)
@@ -164,7 +178,7 @@ async def process_job(job_id: str) -> None:
                      f"Generating sheet music ({instrument_label})", progress=0.0)
             mxl = musicxml_dir(job_id) / f"{instrument_label}.musicxml"
             pdf = pdf_dir(job_id) / f"{instrument_label}.pdf"
-            await build_sheet(midi_path, mxl, pdf, instrument=instrument_label)
+            await build_sheet(midi_path, mxl, pdf, instrument=instrument_label, simple=simple)
             bus.emit(job_id, "notation",
                      f"Sheet music PDF rendered for {instrument_label}", progress=1.0)
 

@@ -20,10 +20,13 @@ ALLOWED_SUFFIX = AUDIO_SUFFIX | VIDEO_SUFFIX
 @router.post("/upload")
 async def upload(
     file: UploadFile = File(...),
-    instrument: str = Form("guitar"),
+    instrument: str = Form("auto"),
+    complexity: str = Form("full"),
 ):
     if instrument not in {"auto", "guitar", "violin"}:
         raise HTTPException(400, "instrument must be 'auto', 'guitar', or 'violin'")
+    if complexity not in {"full", "simple"}:
+        raise HTTPException(400, "complexity must be 'full' or 'simple'")
     if not file.filename:
         raise HTTPException(400, "missing filename")
 
@@ -61,6 +64,7 @@ async def upload(
             state="queued",
             model="htdemucs_6s" if instrument in {"auto", "guitar"} else "htdemucs",
             instrument=instrument,
+            complexity=complexity,
         )
         db.add(job)
         db.commit()

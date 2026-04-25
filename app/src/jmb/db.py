@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import ForeignKey, Integer, String, Float, create_engine
+from sqlalchemy import ForeignKey, Integer, String, Float, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column, relationship, sessionmaker
 
 from .config import settings
@@ -24,7 +24,8 @@ class Job(Base):
     sample_rate: Mapped[int | None] = mapped_column(Integer)
     state: Mapped[str] = mapped_column(String, nullable=False, default="queued")
     model: Mapped[str] = mapped_column(String, nullable=False, default="htdemucs")
-    instrument: Mapped[str | None] = mapped_column(String)        # guitar | violin | ...
+    instrument: Mapped[str | None] = mapped_column(String)        # auto | guitar | violin
+    complexity: Mapped[str] = mapped_column(String, nullable=False, default="full")  # full | simple
     created_at: Mapped[int] = mapped_column(Integer, default=_utcnow, nullable=False)
     completed_at: Mapped[int | None] = mapped_column(Integer)
     error: Mapped[str | None] = mapped_column(String)
@@ -74,5 +75,26 @@ engine = create_engine(settings.db_url, echo=False, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 
+def _ensure_columns() -> None:
+    """Tiny built-in migration: add columns we've added since the original schema.
+
+    SQLAlchemy's `create_all` is a no-op when the table exists, so new columns
+    on existing DBs need an explicit ALTER. Cheap to keep here while v1 ships.
+    """
+    insp = inspect(engine)
+    if "jobs" not in insp.get_table_names():
+        return
+    existing = {col["name"] for col in insp.get_columns("jobs")}
+    additions: list[str] = []
+    if "complexity" not in existing:
+        additions.append("ALTER TABLE jobs ADD COLUMN complexity TEXT NOT NULL DEFAULT 'full'")
+    if not additions:
+        return
+    with engine.begin() as conn:
+        for stmt in additions:
+            conn.execute(text(stmt))
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
+    _ensure_columns()

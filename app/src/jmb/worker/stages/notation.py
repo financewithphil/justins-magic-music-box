@@ -27,11 +27,14 @@ def _get_instrument(name: str):
     return inst
 
 
-def midi_to_musicxml(midi_path: Path, musicxml_path: Path, instrument: str = "violin") -> None:
+def midi_to_musicxml(midi_path: Path, musicxml_path: Path,
+                       instrument: str = "violin", *, simple: bool = False) -> None:
     import music21 as m21
 
     score = m21.converter.parse(str(midi_path))
-    score = score.quantize([4, 3])
+    # simple → quarter notes only (1 subdivision per beat).
+    # full   → 16th notes + triplets (4 subdivisions + 3-tuplets).
+    score = score.quantize([1] if simple else [4, 3])
 
     inst = _get_instrument(instrument)
     for part in score.parts:
@@ -88,8 +91,8 @@ async def musicxml_to_pdf(musicxml_path: Path, pdf_path: Path) -> None:
 
 
 async def build_sheet(midi_path: Path, musicxml_path: Path, pdf_path: Path,
-                       instrument: str = "violin") -> None:
-    await asyncio.to_thread(midi_to_musicxml, midi_path, musicxml_path, instrument)
+                       instrument: str = "violin", *, simple: bool = False) -> None:
+    await asyncio.to_thread(midi_to_musicxml, midi_path, musicxml_path, instrument, simple=simple)
     await musicxml_to_pdf(musicxml_path, pdf_path)
 
 

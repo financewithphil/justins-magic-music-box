@@ -377,11 +377,31 @@ footer {
   </section>
 
   <section>
+    <span class="label">03 — Complexity</span>
+    <div class="override-row" id="complexityRow">
+      <label class="choice selected">
+        <input type="radio" name="complexity" value="full" checked />
+        <div>
+          <div class="name">Full</div>
+          <div class="desc">→ Faithful · 16ths · every note Basic Pitch heard</div>
+        </div>
+      </label>
+      <label class="choice">
+        <input type="radio" name="complexity" value="simple" />
+        <div>
+          <div class="name">Novice</div>
+          <div class="desc">→ Quarter-note grid · low frets · noise filtered · readable</div>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <section>
     <button class="go" id="go" disabled>Process</button>
   </section>
 
   <section id="logSection" style="display:none">
-    <span class="label">03 — Pipeline</span>
+    <span class="label">04 — Pipeline</span>
     <div class="timeline" id="timeline">
       <div class="tl-step" data-stage="probe">Probe</div>
       <div class="tl-step" data-stage="separate">Separate</div>
@@ -393,7 +413,7 @@ footer {
   </section>
 
   <section id="outputsSection" style="display:none">
-    <span class="label">04 — Outputs</span>
+    <span class="label">05 — Outputs</span>
     <div class="outputs" id="outputs"></div>
     <div class="export-path" id="exportPath" style="display:none"></div>
   </section>
@@ -421,14 +441,21 @@ const exportPath = document.getElementById('exportPath');
 const timelineEl = document.getElementById('timeline');
 let selectedFile = null;
 
-document.querySelectorAll('.choice').forEach(c => {
-  c.addEventListener('click', () => {
-    document.querySelectorAll('.choice').forEach(x => x.classList.remove('selected'));
-    c.classList.add('selected');
-    c.querySelector('input').checked = true;
-    updateHeroStep();
+function bindChoiceGroup(name) {
+  document.querySelectorAll(`.choice input[name="${name}"]`).forEach(input => {
+    const card = input.closest('.choice');
+    card.addEventListener('click', () => {
+      document.querySelectorAll(`.choice input[name="${name}"]`).forEach(other => {
+        other.closest('.choice').classList.remove('selected');
+      });
+      card.classList.add('selected');
+      input.checked = true;
+      if (name === 'instrument') updateHeroStep();
+    });
   });
-});
+}
+bindChoiceGroup('instrument');
+bindChoiceGroup('complexity');
 
 function updateHeroStep() {
   const inst = document.querySelector('input[name=instrument]:checked').value;
@@ -552,6 +579,7 @@ goBtn.addEventListener('click', async () => {
   const fd = new FormData();
   fd.append('file', selectedFile);
   fd.append('instrument', document.querySelector('input[name=instrument]:checked').value);
+  fd.append('complexity', document.querySelector('input[name=complexity]:checked').value);
 
   let job;
   try {
