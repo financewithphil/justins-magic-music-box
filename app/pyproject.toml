@@ -12,6 +12,12 @@ dependencies = [
     "sse-starlette>=2.1",
     "python-multipart>=0.0.12",
     "ulid-py>=1.1",
+    "music21>=9.9.1",
+    "pyguitarpro>=0.10.2",
+    "librosa>=0.11.0",
+    "pretty-midi>=0.2.11",
+    "soundfile>=0.13.1",
+    "numpy>=2.4.4",
 ]
 
 [project.optional-dependencies]

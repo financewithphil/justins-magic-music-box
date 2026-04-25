@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Justin's Magic Music Box</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg-0: #0a0b14;
+  --bg-1: #11131f;
+  --bg-2: #1a1d2e;
+  --line: #2a2d40;
+  --text: #f4ecd8;
+  --text-dim: #8a8d9f;
+  --accent: #e8a87c;
+  --accent-dim: #b88662;
+  --mono: #7fb09f;
+  --error: #e87c7c;
+  --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono-font: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-0);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(80vw 60vh at 70% 10%, rgba(232,168,124,0.08), transparent 60%),
+    radial-gradient(70vw 50vh at 20% 80%, rgba(127,176,159,0.06), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.025 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: overlay;
+}
+
+main {
+  position: relative; z-index: 2;
+  max-width: 720px; margin: 0 auto;
+  padding: 80px 32px 120px;
+}
+
+header { margin-bottom: 64px; }
+
+h1 {
+  font-family: var(--serif);
+  font-size: clamp(48px, 7vw, 84px);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+h1 em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+header p {
+  font-family: var(--mono-font);
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+section { margin-bottom: 32px; }
+
+.label {
+  font-family: var(--mono-font);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  display: block;
+}
+
+.dropzone {
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--bg-1);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.dropzone:hover, .dropzone.dragging { border-color: var(--accent); background: var(--bg-2); }
+.dropzone p { font-family: var(--serif); font-size: 22px; }
+.dropzone .hint { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); margin-top: 8px; letter-spacing: 0.1em; text-transform: uppercase; }
+.dropzone input { display: none; }
+
+.file-pill {
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 8px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-family: var(--mono-font); font-size: 13px;
+  color: var(--accent);
+  margin-top: 16px;
+}
+
+.choices { display: flex; gap: 12px; }
+.choice {
+  flex: 1;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--bg-1);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.choice:hover { background: var(--bg-2); }
+.choice.selected { border-color: var(--accent); background: var(--bg-2); }
+.choice .name { font-family: var(--serif); font-size: 24px; }
+.choice .desc { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); margin-top: 4px; letter-spacing: 0.06em; }
+.choice input { display: none; }
+
+button.go {
+  width: 100%;
+  padding: 18px;
+  background: var(--accent);
+  border: none;
+  border-radius: 2px;
+  color: var(--bg-0);
+  font-family: var(--mono-font);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+button.go:hover:not(:disabled) { background: #f0b890; }
+button.go:disabled { background: var(--line); color: var(--text-dim); cursor: not-allowed; }
+
+.log {
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--bg-1);
+  padding: 20px;
+  font-family: var(--mono-font);
+  font-size: 12px;
+  line-height: 1.7;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.log .line { display: grid; grid-template-columns: 90px 110px 1fr; gap: 12px; }
+.log .stage { color: var(--accent); }
+.log .ts { color: var(--text-dim); }
+.log .msg { color: var(--text); }
+.log .line.error .stage, .log .line.error .msg { color: var(--error); }
+.log .line.complete .stage, .log .line.complete .msg { color: var(--mono); }
+
+.outputs { display: grid; gap: 8px; }
+.output {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+.output .meta { display: flex; gap: 16px; align-items: baseline; }
+.output .kind { font-family: var(--serif); font-size: 22px; }
+.output .format { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; }
+.output .conf { font-family: var(--mono-font); font-size: 11px; color: var(--mono); }
+.output a {
+  color: var(--accent); text-decoration: none;
+  font-family: var(--mono-font); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  border-bottom: 1px solid currentColor; padding-bottom: 2px;
+}
+.output a:hover { color: #f0b890; }
+
+footer {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono-font);
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Justin's <em>Magic</em><br>Music Box</h1>
+    <p>Drop a song · Pick an instrument · Get notation</p>
+  </header>
+
+  <section>
+    <span class="label">01 / Audio</span>
+    <label class="dropzone" id="dz">
+      <p>Drag a file here</p>
+      <span class="hint">mp3 · wav · flac · m4a · aac · ogg</span>
+      <input type="file" id="file" accept=".mp3,.wav,.flac,.m4a,.aac,.ogg" />
+    </label>
+    <div id="filePill" class="file-pill" style="display:none"></div>
+  </section>
+
+  <section>
+    <span class="label">02 / Instrument</span>
+    <div class="choices" id="choices">
+      <label class="choice selected">
+        <input type="radio" name="instrument" value="guitar" checked />
+        <div class="name">Guitar</div>
+        <div class="desc">→ Tabs (GP5, ASCII, MIDI)</div>
+      </label>
+      <label class="choice">
+        <input type="radio" name="instrument" value="violin" />
+        <div class="name">Violin</div>
+        <div class="desc">→ Sheet music (PDF, MusicXML, MIDI)</div>
+      </label>
+    </div>
+  </section>
+
+  <section>
+    <button class="go" id="go" disabled>Process</button>
+  </section>
+
+  <section id="logSection" style="display:none">
+    <span class="label">03 / Pipeline</span>
+    <div class="log" id="log"></div>
+  </section>
+
+  <section id="outputsSection" style="display:none">
+    <span class="label">04 / Outputs</span>
+    <div class="outputs" id="outputs"></div>
+  </section>
+
+  <footer>
+    Local-only · Phil hosts · Built for Justin · v0
+  </footer>
+</main>
+
+<script>
+const dz = document.getElementById('dz');
+const fileInput = document.getElementById('file');
+const filePill = document.getElementById('filePill');
+const goBtn = document.getElementById('go');
+const logEl = document.getElementById('log');
+const logSection = document.getElementById('logSection');
+const outputsEl = document.getElementById('outputs');
+const outputsSection = document.getElementById('outputsSection');
+let selectedFile = null;
+
+document.querySelectorAll('.choice').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.choice').forEach(x => x.classList.remove('selected'));
+    c.classList.add('selected');
+    c.querySelector('input').checked = true;
+  });
+});
+
+dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragging'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragging'));
+dz.addEventListener('drop', (e) => {
+  e.preventDefault(); dz.classList.remove('dragging');
+  if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) setFile(fileInput.files[0]);
+});
+
+function setFile(f) {
+  selectedFile = f;
+  filePill.textContent = `${f.name} · ${(f.size / 1024 / 1024).toFixed(2)} MB`;
+  filePill.style.display = 'inline-flex';
+  goBtn.disabled = false;
+}
+
+function fmtTs(ts) {
+  return new Date(ts * 1000).toLocaleTimeString();
+}
+
+function appendLog(payload, klass = '') {
+  const div = document.createElement('div');
+  div.className = 'line ' + klass;
+  div.innerHTML = `<span class="ts">${fmtTs(payload.ts || Date.now() / 1000)}</span><span class="stage">${payload.stage || ''}</span><span class="msg">${payload.message || ''}${payload.progress != null ? ` <span style="color:var(--text-dim)">(${Math.round(payload.progress * 100)}%)</span>` : ''}</span>`;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function loadOutputs(jobId) {
+  const r = await fetch(`/api/jobs/${jobId}`);
+  const j = await r.json();
+  outputsEl.innerHTML = '';
+  outputsSection.style.display = 'block';
+  for (const o of j.outputs) {
+    const div = document.createElement('div');
+    div.className = 'output';
+    const conf = o.confidence != null ? `<span class="conf">conf ${o.confidence}</span>` : '';
+    div.innerHTML = `<div class="meta"><span class="kind">${o.kind}</span><span class="format">${o.format}</span>${conf}</div><a href="/api/jobs/${jobId}/output/${o.id}" download>Download</a>`;
+    outputsEl.appendChild(div);
+  }
+}
+
+goBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  goBtn.disabled = true;
+  goBtn.textContent = 'Uploading…';
+  logEl.innerHTML = '';
+  logSection.style.display = 'block';
+  outputsSection.style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  fd.append('instrument', document.querySelector('input[name=instrument]:checked').value);
+
+  const r = await fetch('/api/upload', { method: 'POST', body: fd });
+  if (!r.ok) {
+    const err = await r.text();
+    appendLog({ stage: 'upload', message: `failed: ${err}`, ts: Date.now() / 1000 }, 'error');
+    goBtn.disabled = false;
+    goBtn.textContent = 'Process';
+    return;
+  }
+  const job = await r.json();
+  appendLog({ stage: 'queued', message: `Job ${job.job_id} · ${job.duration_s.toFixed(1)}s @ ${job.sample_rate}Hz`, ts: Date.now() / 1000 });
+  goBtn.textContent = 'Processing…';
+
+  const es = new EventSource(`/api/jobs/${job.job_id}/events`);
+  es.addEventListener('progress', (ev) => {
+    const data = JSON.parse(ev.data);
+    appendLog(data, data.stage === 'failed' ? 'error' : data.stage === 'complete' ? 'complete' : '');
+  });
+  es.addEventListener('done', async (ev) => {
+    es.close();
+    const data = JSON.parse(ev.data);
+    if (data.state === 'complete') await loadOutputs(job.job_id);
+    goBtn.disabled = false;
+    goBtn.textContent = 'Process';
+  });
+  es.addEventListener('error', () => {
+    es.close();
+    goBtn.disabled = false;
+    goBtn.textContent = 'Process';
+  });
+});
+</script>
+</body>
+</html>

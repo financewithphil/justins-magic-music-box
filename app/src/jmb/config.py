@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Justin's Magic Music Box"
     host: str = "127.0.0.1"
-    port: int = 8765
+    port: int = 8768
 
     # Storage roots — macOS conventions
     data_dir: Path = Path.home() / "Library" / "Application Support" / "JustinsMagicMusicBox"

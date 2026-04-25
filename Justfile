@@ -10,10 +10,10 @@ bootstrap:
     @echo "✓ API venv ready. Run: just dev"
 
 dev:
-    @cd app && uv run --python 3.11 uvicorn jmb.main:app --host 127.0.0.1 --port 8765 --reload
+    @cd app && uv run --python 3.11 uvicorn jmb.main:app --host 127.0.0.1 --port 8768 --reload
 
 health:
-    @curl -s http://127.0.0.1:8765/api/health | python3 -m json.tool
+    @curl -s http://127.0.0.1:8768/api/health | python3 -m json.tool
 
 clean-venvs:
     rm -rf app/.venv workers/*/.venv
